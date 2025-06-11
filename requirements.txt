@@ -1,0 +1,12 @@
+folktables==0.0.12
+matplotlib==3.10.3
+numpy==2.2.6
+pandas==2.2.3
+scikit-learn==1.6.1
+scipy==1.15.3
+setuptools==80.9.0
+skrub==0.5.4
+sympy==1.14.0
+torch==2.7.0
+tqdm==4.67.1
+xgboost==3.0.2
