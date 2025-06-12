@@ -29,7 +29,7 @@ class DataTrainer:
         cm_11 = cm[1,1]/10**n
         return (cm_00*cm_11-cm_01*cm_10)/(sqrt((cm_00+cm_01)*(cm_01+cm_11)*(cm_11+cm_10)*(cm_10+cm_00)))
     
-    def train_diff_proportions(self, state_data, target_var):
+    def train_sex_diff_proportions(self, state_data, target_var):
         if state_data == "usa":
             features, label, _ = self.loader.get_data_usa()
         else:
@@ -55,6 +55,9 @@ class DataTrainer:
             pred.append([k,(cm[0,0]+cm[1,1])/sum(sum(cm))])
 
         plt.scatter([x[0] for x in pred],[x[1] for x in pred])
+        plt.title(f"Confusion Matrix - {state_data}")
+        plt.savefig(f"cm_states/{state_data}.png", dpi=180, bbox_inches='tight')
+        plt.clf()
 
     def comp_CM_per_state(self, state_data, state_model):
         if state_data == "usa":

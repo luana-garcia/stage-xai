@@ -1,5 +1,6 @@
 import folktables
 from folktables import ACSDataSource, ACSIncome
+import subprocess
 
 from scipy.stats import ks_2samp
 import pandas as pd
@@ -8,23 +9,38 @@ import numpy as np
 class DataLoader:
     def __init__(self):
         # Load A file
-        file_1 = pd.read_csv("csv_pus/psam_pusa.csv",sep=",")
-        features_1,label_1,group_1 = ACSIncome.df_to_pandas(file_1)
+        # file_1 = pd.read_csv("csv_pus/psam_pusa.csv",sep=",")
+        # features_1,label_1,group_1 = ACSIncome.df_to_pandas(file_1)
 
-        # Load B file
-        file_2 = pd.read_csv("csv_pus/psam_pusb.csv",sep=",")
-        features_2,label_2,group_2 = ACSIncome.df_to_pandas(file_2)
+        # # Load B file
+        # file_2 = pd.read_csv("csv_pus/psam_pusb.csv",sep=",")
+        # features_2,label_2,group_2 = ACSIncome.df_to_pandas(file_2)
 
-        # Concatenate data for the USA group
-        self.features_usa = pd.concat([features_1, features_2], ignore_index=True)
-        self.label_usa = pd.concat([label_1, label_2], ignore_index=True)
-        self.group_usa = pd.concat([group_1,group_2], ignore_index=True)
+        # # Concatenate data for the USA group
+        # self.features_usa = pd.concat([features_1, features_2], ignore_index=True)
+        # self.label_usa = pd.concat([label_1, label_2], ignore_index=True)
+        # self.group_usa = pd.concat([group_1,group_2], ignore_index=True)
 
 
         self.data_source = ACSDataSource(survey_year='2018', horizon='1-Year', survey='person')
 
     def get_data_state(self, state):
-        acs_data = self.data_source.get_data(states=[state], download=True)
+        try:
+            acs_data = self.data_source.get_data(states=[state], download=True)
+        except Exception as e:
+            print(f"Error downloading data with folktables: {e}")
+            print(f"Trying to manually download data of {state}...")
+
+            # Execute external script to download and extract data
+            try:
+                subprocess.run(["bash", "upload_state.sh", state], check=True)
+            except subprocess.CalledProcessError as e2:
+                print(f"Failed to execute download script: {e2}")
+                raise e2  # Reraise the error if the script also fails
+
+            # After manual download, try to charge again the data without `download=True`
+            acs_data = self.data_source.get_data(states=[state], download=False)
+
         features, label, group = ACSIncome.df_to_pandas(acs_data)
         return features, label, group
     
@@ -41,12 +57,6 @@ class DataLoader:
             print(col,":",ks_2samp(features1[col],features2[col])[1])
 
     def sample_variable(self, features, labels, variable,target_proportions,sample_size=100000):
-        #p=0.5
-        #target_proportions = {
-        #    '1.0' : p, #Hommes
-        #    '2.0' : 1-p  #Femmes
-        #}
-
         #valeurs que l'on veut prendre par attribut dans le sample
         counts = {val: int(sample_size * prop) for val, prop in target_proportions.items()}
 

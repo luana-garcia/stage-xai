@@ -22,24 +22,25 @@ def test_models(trainer):
     trainer.comp_CM_per_state("usa","TX")
     trainer.show_roc_curve()
 
+us_states = [
+    "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
+    "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
+    "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
+    "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
+    "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY"
+]
+
 loader = DataLoader()
-features_ca, _, _ = loader.get_data_state('CA')
-features_tx, _, _ = loader.get_data_state('TX')
 
 # loader.run_ks_test_2sample(features_ca, features_tx)
 
 trainer = DataTrainer(loader)
 
-trainer.set_logistic_regression()
-trainer.train_diff_proportions("TX", "SEX")
-
 trainer.set_xgbclassifier()
-trainer.train_diff_proportions("TX", "SEX")
-
-trainer.set_skrub()
-trainer.train_diff_proportions("TX", "SEX")
-
-trainer.set_nn()
-trainer.train_diff_proportions("TX", "SEX")
+for s in us_states:
+    try:
+        trainer.train_sex_diff_proportions(s, "SEX")
+    except:
+        pass
 
 # test_models(trainer)
