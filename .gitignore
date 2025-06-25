@@ -3,3 +3,4 @@ __pycache__
 data/
 csv_pus/
 cm_states/
+xai/output/*

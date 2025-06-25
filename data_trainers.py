@@ -6,7 +6,6 @@ from xgboost import XGBClassifier
 from skrub import tabular_learner
 
 import sklearn as sk
-from sklearn.model_selection import train_test_split,GridSearchCV,RandomizedSearchCV
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import mean_absolute_error,confusion_matrix,roc_curve, roc_auc_score
 from sklearn.pipeline import make_pipeline
@@ -45,7 +44,7 @@ class DataTrainer:
             }
             features_sample,label_sample = self.loader.sample_variable(features, label, target_var,target_proportions)
 
-            X_train, X_test, Y_train, Y_test = train_test_split(features_sample,label_sample,train_size=0.7)
+            X_train, X_test, Y_train, Y_test = self.loader.train_test_data(features_sample,label_sample,train_size=0.7)
 
             self.model.fit(X_train,Y_train.values.ravel())
 
@@ -70,7 +69,7 @@ class DataTrainer:
         else:
             features_model, label_model, _ = self.loader.get_data_state(state_model)
 
-        X_train, X_test, Y_train, Y_test = train_test_split(features_model,label_model,train_size=0.7)
+        X_train, X_test, Y_train, Y_test = self.loader.train_test_data(features_model,label_model)
 
         # train the model
         if self.model_name == "NN":
@@ -103,6 +102,24 @@ class DataTrainer:
             print("       - Disparate Impact =",Cpt_DI(2-features["SEX"].values,Y_test_pred.ravel()))
             print("       - Equality of Odds =",Cpt_EoO(2-features["SEX"].values,Y_test_pred.ravel(),label.values.ravel()))
             print("       - Sufficiency =",Cpt_Suf(2-features["SEX"].values,Y_test_pred.ravel(),label.values.ravel()),"\n")
+
+    def train_state(self, state_data):
+        if state_data == "usa":
+            features, label, _ = self.loader.get_data_usa()
+        else:
+            features, label, _ = self.loader.get_data_state(state_data)
+
+        X_train, X_test, Y_train, Y_test = self.loader.train_test_data(features,label)
+
+        # train the model
+        if self.model_name == "NN":
+            self.model.fit(X_train.values,Y_train.values.ravel(),epochs_nb=100,batch_size=300,optimizer='SGD')
+        else:
+            self.model.fit(X_train.values,Y_train.values.ravel())
+
+    def test_model(self):
+        y_probs = self.model.predict(self.loader.X_test)
+        return y_probs
 
     def set_logistic_regression(self):
         self.model_name = ""

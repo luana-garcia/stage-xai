@@ -3,6 +3,8 @@ from folktables import ACSDataSource, ACSIncome
 import subprocess
 
 from scipy.stats import ks_2samp
+from sklearn.model_selection import train_test_split
+
 import pandas as pd
 import numpy as np
 
@@ -42,10 +44,20 @@ class DataLoader:
             acs_data = self.data_source.get_data(states=[state], download=False)
 
         features, label, group = ACSIncome.df_to_pandas(acs_data)
+
+        self.set_feature_names(features)
+
         return features, label, group
     
     def get_data_usa(self):
         return self.features_usa, self.label_usa, self.group_usa
+    
+    def set_feature_names(self, features):
+        self.feature_names = list(features.columns)
+    
+    def train_test_data(self, features, label):
+        self.X_train, self.X_test, self.Y_train, self.Y_test = train_test_split(features,label,train_size=0.9)
+        return self.X_train, self.X_test, self.Y_train, self.Y_test
     
     '''
     The two-sample Kolmogorov-Smirnov test is a nonparametric hypothesis test that 

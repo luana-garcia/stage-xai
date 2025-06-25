@@ -22,6 +22,14 @@ def test_models(trainer):
     trainer.comp_CM_per_state("usa","TX")
     trainer.show_roc_curve()
 
+def test_sampling_sex(trainer):
+    trainer.set_xgbclassifier()
+    for s in us_states:
+        try:
+            trainer.train_sex_diff_proportions(s, "SEX")
+        except:
+            pass
+
 us_states = [
     "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
     "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
@@ -36,11 +44,5 @@ loader = DataLoader()
 
 trainer = DataTrainer(loader)
 
-trainer.set_xgbclassifier()
-for s in us_states:
-    try:
-        trainer.train_sex_diff_proportions(s, "SEX")
-    except:
-        pass
-
-# test_models(trainer)
+test_models(trainer)
+test_sampling_sex(trainer)
