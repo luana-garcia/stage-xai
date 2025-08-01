@@ -1,6 +1,12 @@
 __pycache__
 .ipynb_checkpoints
+*.egg-info
+fairness-xai/
+
 data/
 csv_pus/
 cm_states/
 xai/output/*
+plots/
+
+shap_explainer*

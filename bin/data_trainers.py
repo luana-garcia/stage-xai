@@ -3,7 +3,7 @@ from simple_nn import SimpleNNclassifier
 from math import sqrt
 
 from xgboost import XGBClassifier
-from skrub import tabular_learner
+from skrub import tabular_pipeline
 
 import sklearn as sk
 from sklearn.linear_model import LogisticRegression
@@ -58,50 +58,36 @@ class DataTrainer:
         plt.savefig(f"cm_states/{state_data}.png", dpi=180, bbox_inches='tight')
         plt.clf()
 
+    def show_fairness_stats(self, features, label, Y_test_pred):
+        print(self.phi(confusion_matrix(label, self.model.predict(features))))
+        print(confusion_matrix(label, self.model.predict(features)),"\n")
+
+        print("       - Disparate Impact =",Cpt_DI(2-features["SEX"].values,Y_test_pred.ravel()))
+        print("       - Equality of Odds =",Cpt_EoO(2-features["SEX"].values,Y_test_pred.ravel(),label.values.ravel()))
+        print("       - Sufficiency =",Cpt_Suf(2-features["SEX"].values,Y_test_pred.ravel(),label.values.ravel()),"\n")
+
     def comp_CM_per_state(self, state_data, state_model):
         if state_data == "usa":
             features, label, _ = self.loader.get_data_usa()
         else:
             features, label, _ = self.loader.get_data_state(state_data)
 
-        if state_data == "usa":
-            features_model, label_model, _ = self.loader.get_data_usa()
-        else:
-            features_model, label_model, _ = self.loader.get_data_state(state_model)
-
-        X_train, X_test, Y_train, Y_test = self.loader.train_test_data(features_model,label_model)
-
-        # train the model
-        if self.model_name == "NN":
-            self.model.fit(X_train.values,Y_train.values.ravel(),epochs_nb=100,batch_size=300,optimizer='SGD')
-        elif self.model_name == "Skrub":
-            self.model.fit(X_train, Y_train)
-        else:
-            self.model.fit(X_train.values,Y_train.values.ravel())
+        self.train_state(state_model)
+        X_test = self.loader.X_test
+        Y_test = self.loader.Y_test
 
         # Si les 2 Etats sont identiques, on fait la CM uniquement sur les données de test
         # pour ne pas biaiser avec la proportion en données d'entraînement mieux entraînée
         if state_data == state_model:
             Y_test_pred = self.model.predict(X_test)
+
             print("Données :",state_data.upper(),"// Modèle fait sur :",state_model.upper())
-            print(self.phi(confusion_matrix(Y_test,Y_test_pred)))
-            print(confusion_matrix(Y_test,Y_test_pred),"\n")
-            
-            #2-X_test["SEX"].values : "1" = Homme et "0" = Femme
-            print("       - Disparate Impact =",Cpt_DI(2-X_test["SEX"].values,Y_test_pred.ravel()))
-            print("       - Equality of Odds =",Cpt_EoO(2-X_test["SEX"].values,Y_test_pred.ravel(),Y_test.values.ravel()))
-            print("       - Sufficiency =",Cpt_Suf(2-X_test["SEX"].values,Y_test_pred.ravel(),Y_test.values.ravel()),"\n")
-        
+            self.show_fairness_stats(X_test, Y_test, Y_test_pred)
         else:
             Y_test_pred = self.model.predict(features)
 
             print("Données :",state_data.upper(),"// Modèle fait sur :",state_model.upper())
-            print(self.phi(confusion_matrix(label, self.model.predict(features))))
-            print(confusion_matrix(label, self.model.predict(features)),"\n")
-
-            print("       - Disparate Impact =",Cpt_DI(2-features["SEX"].values,Y_test_pred.ravel()))
-            print("       - Equality of Odds =",Cpt_EoO(2-features["SEX"].values,Y_test_pred.ravel(),label.values.ravel()))
-            print("       - Sufficiency =",Cpt_Suf(2-features["SEX"].values,Y_test_pred.ravel(),label.values.ravel()),"\n")
+            self.show_fairness_stats(features, label, Y_test_pred)
 
     def train_state(self, state_data):
         if state_data == "usa":
@@ -109,36 +95,50 @@ class DataTrainer:
         else:
             features, label, _ = self.loader.get_data_state(state_data)
 
-        X_train, X_test, Y_train, Y_test = self.loader.train_test_data(features,label)
+        X_train, _, Y_train, _ = self.loader.train_test_data(features,label)
 
         # train the model
         if self.model_name == "NN":
-            self.model.fit(X_train.values,Y_train.values.ravel(),epochs_nb=100,batch_size=300,optimizer='SGD')
+            self.model.fit(
+                X_train,
+                Y_train.values.ravel(),
+                epochs_nb=100,
+                batch_size=300,
+                optimizer='SGD',
+                save=True,
+                state=state_data
+            )
         else:
-            self.model.fit(X_train.values,Y_train.values.ravel())
+            self.model.fit(
+                X_train,
+                Y_train.values.ravel()
+            )
 
     def test_model(self):
         y_probs = self.model.predict(self.loader.X_test)
         return y_probs
 
     def set_logistic_regression(self):
-        self.model_name = ""
-        self.model = make_pipeline(StandardScaler(),LogisticRegression(solver="lbfgs",max_iter=10000))
+        self.model_name = "lr"
+        self.model = make_pipeline(
+            StandardScaler().set_output(transform="pandas"),
+            LogisticRegression(solver="lbfgs",max_iter=10000)
+        )
     
     def set_xgbclassifier(self):
-        self.model_name = ""
+        self.model_name = "xgb"
         self.model = XGBClassifier(max_depth=6, n_estimators = 200, random_state=8)
     
     def set_skrub(self):
-        self.model_name = "Skrub"
-        self.model=tabular_learner('classifier')
+        self.model_name = "skrub"
+        self.model=tabular_pipeline('classifier')
     
     def set_nn(self):
         self.model_name = "NN"
         self.model = SimpleNNclassifier(10)
 
     
-    def show_roc_curve(self):
+    def show_roc_curve(self, save = False, state = ''):
         features_usa, label_usa, _ = self.loader.get_data_usa()
 
         if self.model_name == 'NN':
@@ -158,7 +158,14 @@ class DataTrainer:
         plt.plot([0, 1], [0, 1], linestyle='--', color='grey')  # ligne diagonale
         plt.xlabel("False Positive Rate")
         plt.ylabel("True Positive Rate")
-        plt.title("Courbe ROC")
+        plt.title(f'Courbe ROC - {state} - {self.model_name}')
         plt.legend()
         plt.grid(True)
-        plt.show()
+
+        if save:
+            dir = './plots'
+            os.makedirs(dir, exist_ok=True)
+            save_path = os.path.join(dir, f'roc_curve_{state}_{self.model_name}.png')
+            plt.savefig(save_path)
+        else:
+            plt.show()

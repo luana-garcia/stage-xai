@@ -5,9 +5,10 @@ pandas==2.2.3
 scikit-learn==1.6.1
 scipy==1.15.3
 setuptools==80.9.0
-skrub==0.5.4
+skrub==0.6.0
 sympy==1.14.0
 torch==2.7.0
 tqdm==4.67.1
 xgboost==3.0.2
-anchor-exp
+anchor-exp==0.0.2.0
+shap==0.48.0

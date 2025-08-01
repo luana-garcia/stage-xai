@@ -8,46 +8,47 @@ import sklearn as sk
 import matplotlib.pyplot as plt
 import numpy as np
 
+import os
+
 #1) define the NN classifier model
 class MyNN(nn.Module):
     def __init__(self,p):
-            
-            super().__init__()  #p is the dimension of the inputs
-            self.fc1 = nn.Linear(p, p)
-            self.relu1 = nn.ReLU()
-            self.dout1 = nn.Dropout(0.1)
-            self.fc2 = nn.Linear(p, p)
-            self.relu2 = nn.ReLU()
-            self.dout2 = nn.Dropout(0.05)
-            self.fc3 = nn.Linear(p, p)
-            self.relu3 = nn.ReLU()
-            self.dout3 = nn.Dropout(0.05)
-            self.fc4 = nn.Linear(p, 1)
-            self.out_act = nn.Sigmoid()
+        super().__init__()  #p is the dimension of the inputs
+        self.fc1 = nn.Linear(p, p)
+        self.relu1 = nn.ReLU()
+        self.dout1 = nn.Dropout(0.1)
+        self.fc2 = nn.Linear(p, p)
+        self.relu2 = nn.ReLU()
+        self.dout2 = nn.Dropout(0.05)
+        self.fc3 = nn.Linear(p, p)
+        self.relu3 = nn.ReLU()
+        self.dout3 = nn.Dropout(0.05)
+        self.fc4 = nn.Linear(p, 1)
+        self.out_act = nn.Sigmoid()
         
     def forward(self, input_):
-            a1 = self.fc1(input_)
-            h1 = self.relu1(a1)
-            dout1 = self.dout1(h1)
-            a2 = self.fc2(dout1)
-            h2 = self.relu2(a2)
-            dout2 = self.dout2(h2)
-            a3 = self.fc3(dout2)
-            h3 = self.relu3(a3)
-            dout3 = self.dout3(h3)
-            a4 = self.fc4(dout3)
-            y = self.out_act(a4)
-            return y
+        a1 = self.fc1(input_)
+        h1 = self.relu1(a1)
+        dout1 = self.dout1(h1)
+        a2 = self.fc2(dout1)
+        h2 = self.relu2(a2)
+        dout2 = self.dout2(h2)
+        a3 = self.fc3(dout2)
+        h3 = self.relu3(a3)
+        dout3 = self.dout3(h3)
+        a4 = self.fc4(dout3)
+        y = self.out_act(a4)
+        return y
         
     def predict(self,input_):
+        with torch.no_grad():
             pred = self.forward(input_)
-            
-            return torch.tensor(1.*(pred>0.5))
+            return (pred > 0.5).float().clone().detach()
     
     def predict_proba(self,input_):
+        with torch.no_grad():
             pred = self.forward(input_)
-            
-            return torch.tensor(pred)
+            return pred.clone().detach()
 
 class SimpleNNclassifier:
     """
@@ -67,7 +68,7 @@ class SimpleNNclassifier:
         print('SimpleNNclassifier created')
         
     #2) init method of SimpleNNclassifier
-    def fit(self,X_train,y_train,epochs_nb=1000,batch_size=300,optimizer='SGD'):
+    def fit(self,X_train,y_train,epochs_nb=1000,batch_size=300,optimizer='SGD', save = False, state = ''):
         """
         parameters:
          - epochs_nb: epochs number
@@ -114,7 +115,14 @@ class SimpleNNclassifier:
                 #Adjust weights
                 optimizer.step()
         plt.plot(losses_train)
-        plt.show()
+        
+        if save:
+            dir = './plots'
+            os.makedirs(dir, exist_ok=True)
+            save_path = os.path.join(dir, f'loss_nn_{state}.png')
+            plt.savefig(save_path)
+        else:
+            plt.show()
     
     #3) Prediction
     def predict(self,X_test):
