@@ -50,7 +50,7 @@ def export_anchors_json(anchors, loader, json_name):
                        total=len(loader.X_test), 
                        desc="Exporting anchor explanations")
     for i, row in progress_bar:
-        anchors_exp = anchors.export_anchors_exp(row, row.values)
+        anchors_exp = anchors.export_anchors_exp(row)
         exps[i] = anchors_exp
         if progress_bar.n % 1000 == 0 and progress_bar.n > 0:
             save_partial_json(file_name, exps)
@@ -93,36 +93,44 @@ def run_models_by_state_anchors(state, trainer, loader):
 
     export_anchors_json(anchors, loader, f'xg_{state.lower()}_anchors_explanations')
 
-def run_models_by_state_shap(state, trainer, loader):
+    # Skrub
     trainer.set_skrub()
     trainer.train_state(state)
-    shap = ExpSHAP(trainer.model.named_steps['histgradientboostingclassifier'], trainer.model_name, 'tree', loader.feature_names,  loader.X_train)
+    anchors.set_model(trainer.model.named_steps['histgradientboostingclassifier'])
+
+    export_anchors_json(anchors, loader, f'lr_{state.lower()}_anchors_explanations')
+
+def run_models_by_state_shap(state, trainer, loader):
+    # Logistic Regression
+    trainer.set_logistic_regression()
+    trainer.train_state(state)
+    shap = ExpSHAP(trainer.model, trainer.model_name, 'linear', loader.feature_names,  loader.X_train)
+
+    export_shap_json(shap, loader, f'lr_{state.lower()}_shap_explanations')
+
+    # XGBoost
+    trainer.set_xgbclassifier()
+    trainer.train_state(state)
+    shap.set_model(trainer.model, trainer.model_name, 'tree')
+
+    export_shap_json(shap, loader, f'xg_{state.lower()}_shap_explanations')
+
+    # Skrub
+    trainer.set_skrub()
+    trainer.train_state(state)
+    shap.set_model(trainer.model.named_steps['histgradientboostingclassifier'], trainer.model_name, 'tree')
 
     export_shap_json(shap, loader, f'skrub_{state.lower()}_shap_explanations')
-
-    # # Logistic Regression
-    # trainer.set_logistic_regression()
-    # trainer.train_state(state)
-    # shap = ExpSHAP(trainer.model, trainer.model_name, 'linear', loader.feature_names,  loader.X_train)
-
-    # export_shap_json(shap, loader, f'lr_{state.lower()}_shap_explanations')
-
-    # # XGBoost
-    # trainer.set_xgbclassifier()
-    # trainer.train_state(state)
-    # shap.set_model(trainer.model, trainer.model_name, 'tree')
-
-    # export_shap_json(shap, loader, f'xg_{state.lower()}_shap_explanations')
 
 loader = DataLoader()
 
 trainer = DataTrainer(loader)
 
 ############### TEXAS ###############
-run_models_by_state_shap('TX', trainer, loader)
+run_models_by_state_anchors('TX', trainer, loader)
 
 # ############### CALIFORNIA ###############
 # run_models_by_state_shap('CA', trainer, loader)
 
-# ############### NEW YORK ###############
+# # ############### NEW YORK ###############
 # run_models_by_state_shap('NY', trainer, loader)

@@ -1,5 +1,6 @@
 from anchor import anchor_tabular
-
+import pandas as pd
+import numpy as np
 # from consensus_module.utils import scale_weights
 
 class ExpAnchors:
@@ -15,21 +16,35 @@ class ExpAnchors:
     
     def set_model(self, new_model):
         self.ml_model = new_model
+
+    def format_row(self, row):
+        row_num = row.name if isinstance(row, pd.Series) else row.index[0]
+
+        # Convert input to proper DataFrame with feature names
+        if isinstance(row, pd.Series):
+            row = pd.DataFrame([row], columns=self.feature_names)
+        elif isinstance(row, np.ndarray):
+            row = pd.DataFrame(row.reshape(1, -1), columns=self.feature_names)
+        else:
+            row = row[self.feature_names]  # For DataFrame input
+
+        return row, row_num
         
     def run_anchors(self, row_values, anchors_threshold = 0.95):
         exp_anchors = self.anchors.explain_instance(
             row_values,
-            self.ml_model.predict,
+            lambda x: self.ml_model.predict(pd.DataFrame(x, columns=self.feature_names)),
             threshold=anchors_threshold)
         return exp_anchors
 
     # export anchors features' explanations
-    def export_anchors_exp(self, row, row_values):
-        anchors_exp = self.run_anchors(row_values)
+    def export_anchors_exp(self, row):
+        row_df, row_num = self.format_row(row)
+        anchors_exp = self.run_anchors(row_df.iloc[0].values)
         
         anchors_output = dict()
         # general instance indices
-        anchors_output['row_num'] = row.name
+        anchors_output['row_num'] = row_num
         anchors_output['prediction'] = anchors_exp.exp_map['prediction']
 
         anchors_output['precision'] = anchors_exp.precision()
