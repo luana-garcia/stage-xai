@@ -98,7 +98,7 @@ def run_models_by_state_anchors(state, trainer, loader):
     trainer.train_state(state)
     anchors.set_model(trainer.model.named_steps['histgradientboostingclassifier'])
 
-    export_anchors_json(anchors, loader, f'lr_{state.lower()}_anchors_explanations')
+    export_anchors_json(anchors, loader, f'skrub_{state.lower()}_anchors_explanations')
 
 def run_models_by_state_shap(state, trainer, loader):
     # Logistic Regression
@@ -128,9 +128,12 @@ trainer = DataTrainer(loader)
 
 ############### TEXAS ###############
 run_models_by_state_anchors('TX', trainer, loader)
+run_models_by_state_shap('TX', trainer, loader)
 
-# ############### CALIFORNIA ###############
-# run_models_by_state_shap('CA', trainer, loader)
+############### CALIFORNIA ###############
+run_models_by_state_shap('CA', trainer, loader)
+run_models_by_state_anchors('CA', trainer, loader)
 
-# # ############### NEW YORK ###############
-# run_models_by_state_shap('NY', trainer, loader)
+# ############### NEW YORK ###############
+run_models_by_state_shap('NY', trainer, loader)
+run_models_by_state_anchors('NY', trainer, loader)

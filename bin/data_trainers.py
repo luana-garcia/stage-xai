@@ -163,7 +163,7 @@ class DataTrainer:
         plt.grid(True)
 
         if save:
-            dir = './plots'
+            dir = './plots/roc_curve'
             os.makedirs(dir, exist_ok=True)
             save_path = os.path.join(dir, f'roc_curve_{state}_{self.model_name}.png')
             plt.savefig(save_path)
