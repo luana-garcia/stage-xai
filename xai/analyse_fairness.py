@@ -25,14 +25,14 @@ def plot_sex_anchors_comparison(ax, true_pred, false_pred, title_suffix=""):
     x = np.arange(len(categories))
     width = 0.35
     
-    rects1 = ax.bar(x - width/2, true_counts, width, label='True Predictions', color='#ff7f0e')
-    rects2 = ax.bar(x + width/2, false_counts, width, label='False Predictions', color='#1f77b4')
+    rects1 = ax.bar(x - width/2, true_counts, width, label='True Predictions', color='#D38217')
+    rects2 = ax.bar(x + width/2, false_counts, width, label='False Predictions', color='#1952E1')
     
     # Adiciona texto e formatação
     ax.set_ylabel('Anchors count')
-    ax.set_title(f"{title_suffix}")
+    ax.set_title(title_suffix, pad=15)
     ax.set_xticks(x)
-    ax.set_xticklabels(categories)
+    ax.set_xticklabels(categories, fontweight='bold')
     ax.legend()
     
     # Adiciona valores nas barras
@@ -43,7 +43,8 @@ def plot_sex_anchors_comparison(ax, true_pred, false_pred, title_suffix=""):
                         xy=(rect.get_x() + rect.get_width() / 2, height),
                         xytext=(0, 3),  # 3 points vertical offset
                         textcoords="offset points",
-                        ha='center', va='bottom')
+                        ha='center', va='bottom',
+                        fontweight='bold')
     
     autolabel(rects1)
     autolabel(rects2)
@@ -228,13 +229,20 @@ def analyse_clustered_pca(file_path, loader, plot_tests, state, save=False, file
     X_test_pca = plot_pca(X_train, X_test, mask_anchors, save=save, file_name=file_name)
 
     # Create a figure with multiple subplots
-    fig_pca, axs_pca = plt.subplots(2, 3, figsize=(15, 12))
-    fig_pca.suptitle("Anchors Analysis in PCA Space", fontsize=16)
+    num_plots = len(plot_tests)
+
+    ncols_pca = 3     # 3 columns
+    nrows_pca = (num_plots + 2 + ncols_pca - 1) // ncols_pca
+
+    fig_pca, axs_pca = plt.subplots(nrows_pca, ncols_pca, figsize=(ncols_pca*5, nrows_pca*5))
+    fig_pca.suptitle("Anchors Analysis in PCA Space")
     axs_pca = axs_pca.ravel()
 
     # Create a figure with multiple subplots
-    fig_hist, axs_hist = plt.subplots(2, 2, figsize=(15, 15))
-    fig_hist.suptitle(f"Distribution of Anchors by 'SEX' feature:\nTotal of test data: {len(anchors.items())}", fontsize=16)
+    ncols_hist = 2     # 2 columns
+    nrows_hist = (num_plots + ncols_hist - 1) // ncols_hist
+    fig_hist, axs_hist = plt.subplots(nrows_hist, ncols_hist, figsize=(ncols_pca*4, nrows_pca*3))
+    fig_hist.suptitle(f"Distribution of Anchors by 'SEX' feature:\nTotal of test data: {len(anchors.items())}")
     axs_hist = axs_hist.ravel()  # Flatten the array of axes
 
     clusters = cluster_pca(X_test_pca, n_clusters=3, ax = axs_pca[0])
@@ -244,7 +252,7 @@ def analyse_clustered_pca(file_path, loader, plot_tests, state, save=False, file
     axs_pca[1].set_title('PCA Distribution: Test Set vs. Sexed Anchors in it')
     axs_pca[1].legend()
 
-    ax_num = 2
+    ax_num = 2 
     ax_hist_num = 0
     for t in plot_tests:
         conditions = t.get('conditions', [])
@@ -257,11 +265,11 @@ def analyse_clustered_pca(file_path, loader, plot_tests, state, save=False, file
         ax_hist_num += 1
 
     # Hide the last subplot if we have an odd number of plots
-    # if ax_num > 5:
-    #     axs_pca[ax_num-1].axis('off')
+    for j in range(num_plots+2, len(axs_pca)):
+        axs_pca[j].axis('off')
     
-    # if ax_hist_num > 5:
-    #     axs_hist[ax_hist_num-1].axis('off')
+    for j in range(num_plots, len(axs_hist)):
+        axs_hist[j].axis('off')
 
     fig_pca.tight_layout()
     fig_pca.subplots_adjust(top=0.9)
@@ -306,8 +314,8 @@ anchors_tests = {
     'tests': [
         {'conditions': ['prediction'], 'values': [], 'description': 'Prediction = True/False'},
         {'conditions': ['prediction', 'precision'], 'values': [0.95], 'description': 'Prediction = True/False; Precision > 0.95'},
-        {'conditions': ['prediction', 'precision', 'coverage'], 'values': [0.95, 0.2], 'description': 'Prediction = True/False; Precision > 0.95; Coverage > 0.2'},
-        {'conditions': ['prediction', 'precision', 'num_features'], 'values': [0.95, 3], 'description': 'Prediction = True/False; Precision > 0.95; Num_features <= 3'}
+        {'conditions': ['prediction', 'precision', 'num_features'], 'values': [0.95, 3], 'description': 'Prediction = True/False; Precision > 0.95;\n Num_features <= 3'},
+        {'conditions': ['prediction', 'precision', 'coverage'], 'values': [0.95, 0.1], 'description': 'Prediction = True/False; Precision > 0.95;\n Coverage > 0.1'}
     ]
 }
 
@@ -323,7 +331,7 @@ shap_tests = {
     'tests': [
         {'conditions': ['prediction'], 'values': [], 'description': 'Prediction = True/False'},
         {'conditions': ['prediction', 'precision'], 'values': [0.95], 'description': 'Prediction = True/False; Precision > 0.95'},
-        {'conditions': ['prediction', 'precision', 'rank_position'], 'values': [0.95, 3], 'description': 'Prediction = True/False; Precision > 0.95; Rank position <= 3'}
+        {'conditions': ['prediction', 'precision', 'rank_position'], 'values': [0.95, 3], 'description': 'Prediction = True/False; Precision > 0.95;\n Rank position <= 3'}
     ]
 }
 
