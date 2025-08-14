@@ -1,6 +1,3 @@
-from bin.data_loaders import DataLoader
-from bin.data_trainers import DataTrainer
-
 import json
 import os
 import numpy as np
@@ -10,6 +7,8 @@ import re
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
+
+from xai.bias_measure_fcts import Cpt_DI
 
 # SENSIBLE VARIABLE: 'SEX' (1 = homme, 2 = femme)
 
@@ -28,22 +27,81 @@ class AnalyseFairness:
             state = re.search(r'_([a-zA-Z]{2})_', f)
             state = state[1].upper()
             f_name = re.sub(r'_explanations\.json$', '', f)
-            self.analyse_exp_profile(f, exp_tests, state, save_plot, f_name=f_name)
+            self.set_context(f, state)
+            self.analyse_exp_profile(exp_tests, save_plot, f_name=f_name)
 
-    def analyse_exp_profile(self, f, exp_tests, state, save=False, f_name=''):
-        self.read_exp_data(f)
+    def generate_exp_DI_analysis(self, exp_tests):
+        for f in exp_tests.get('files'):
+            state = re.search(r'_([a-zA-Z]{2})_', f)
+            state = state[1].upper()
+            
+            self.set_context(f, state)
+            print(f"\nAnalyse des données pour l'état: {state}")
+            self.analyse_exp_DI_pca_range()
+            self.analyse_exp_DI_by_cluster()
 
-        self.retrieve_train_test_data(self.exp_data, state)
+    def analyse_exp_DI_pca_range(self):
+        x_range = (-2, 0)
+        y_range = (-2, 0)
+        _, points_ids = self.filter_pca_by_range(x_range, y_range)
 
-        self.apply_pca_on_test_data(self.X_train, self.X_test)
+        di = self.calculate_DI(points_ids)
 
+        print(f"Données PCA range:\n PC1: {x_range}, PC2: {y_range}")
+        print("       - Disparate Impact =", di)
+
+    def analyse_exp_DI_by_cluster(self):
+        cluster_ids = {i: [] for i in range(self.n_clusters)}
+    
+        for idx, cluster_id in enumerate(self.clusters):
+            cluster_ids[cluster_id].append(idx)
+
+        for points_ids in cluster_ids.values():
+            di = self.calculate_DI(points_ids)
+
+            cluster_points = self.X_test_pca[points_ids]
+            center = np.mean(cluster_points, axis=0)
+
+            if center[0] < 0 and center[1] < 0:
+                label = 'Down Left'
+            elif center[0] > 0 and center[1] > 0:
+                label = 'Up'
+            else:
+                label = 'Down Right'
+                
+            print("Données Cluster:", label)
+            print("       - Disparate Impact =", di)
+    
+    def calculate_DI(self, points_ids):
+        X_test_genred = self.X_test[self.X_test.index.isin(points_ids)]
+
+        Y_test_pred = np.array([])
+        for p in self.exp_data.values():
+            if p.get('row_num') in points_ids:
+                Y_test_pred = np.append(Y_test_pred, p.get('prediction'))
+
+        Y_test_pred = np.where(Y_test_pred == 'True', 1.0, 0.0)
+        Y_test_pred = Y_test_pred.astype(np.float64)
+
+        return Cpt_DI(2 - X_test_genred["SEX"].values, Y_test_pred, boxplot=True)
+
+    def filter_pca_by_range(self, x_range, y_range):
+        mask = (self.X_test_pca[:, 0] >= x_range[0]) & \
+            (self.X_test_pca[:, 0] <= x_range[1]) & \
+            (self.X_test_pca[:, 1] >= y_range[0]) & \
+            (self.X_test_pca[:, 1] <= y_range[1])
+        
+        filtered_points = self.X_test_pca[mask]
+        filtered_indices = np.where(mask)[0]
+        
+        return filtered_points, filtered_indices
+
+    def analyse_exp_profile(self, exp_tests, save=False, f_name=''):
         _, exp_genred_ids = self.analyse_sensible_var_in_exp()
 
         mask_genred_exp = self.mask_filtered_ids(exp_genred_ids, self.X_test.index)
         
         self.plot_pca_train_test(mask_genred_exp, save, file_name=f_name)
-
-        self.apply_pca_clustering()
 
         plot_tests = exp_tests.get('tests')
         test_numbers = []
@@ -59,7 +117,15 @@ class AnalyseFairness:
         self.plot_exp_distribution_tests(plot_tests, test_numbers, save, file_name=f_name)
         
         self.plot_clustered_pca_tests(mask_genred_exp, plot_tests, test_masks, save, file_name=f_name)
-                
+
+    def set_context(self, exp_file, state):
+        self.read_exp_data(exp_file)
+
+        self.retrieve_train_test_data(self.exp_data, state)
+
+        self.apply_pca_on_test_data()
+
+        self.apply_pca_clustering()
 
     def mask_filtered_ids(self, filtered_ids, total_ids):
         filtered_ids = [int(id) for id in filtered_ids]
@@ -100,18 +166,18 @@ class AnalyseFairness:
     def retrieve_train_test_data(self, exp, state):
         test_ids = [int(id) for id in exp.keys()]
 
-        features, labels, _ = loader.get_data_state(state)
+        features, labels, _ = self.loader.get_data_state(state)
 
         self.X_train = features[~features.index.isin(test_ids)]
 
         self.X_test = features.loc[test_ids]
         self.Y_test = labels.loc[test_ids]
 
-    def apply_pca_on_test_data(self, X_train, X_test):
+    def apply_pca_on_test_data(self):
         scaler = StandardScaler()
 
-        X_train_scaled = scaler.fit_transform(X_train)
-        X_test_scaled = scaler.transform(X_test)
+        X_train_scaled = scaler.fit_transform(self.X_train)
+        X_test_scaled = scaler.transform(self.X_test)
 
         self.pca = PCA(n_components=self.n_pca_components)
         self.X_train_pca = self.pca.fit_transform(X_train_scaled)
@@ -346,57 +412,3 @@ class AnalyseFairness:
                         sensible_exp_ids.append(key)
 
         return sensible_exp, sensible_exp_ids
-
-loader = DataLoader()
-trainer = DataTrainer(loader)
-
-file_path = 'xai/output/json/'
-
-sensible_feature = 'SEX'
-
-fairness = AnalyseFairness(loader, sensible_feature, trainer, file_path)
-
-anchors_tests = {
-    'files': [
-        'skrub_tx_anchors_explanations.json',
-        'skrub_ca_anchors_explanations.json',
-        'skrub_ny_anchors_explanations.json',
-        'xg_tx_anchors_explanations.json',
-        'xg_ca_anchors_explanations.json',
-        'xg_ny_anchors_explanations.json'
-    ],
-    'tests': [
-        {'conditions': ['prediction'], 'values': [], 'description': 'Prediction = True/False'},
-        {'conditions': ['prediction', 'precision'], 'values': [0.95], 'description': 'Prediction = True/False; Precision > 0.95'},
-        {'conditions': ['prediction', 'precision', 'num_features'], 'values': [0.95, 3], 'description': 'Prediction = True/False; Precision > 0.95;\n Num_features <= 3'},
-        {'conditions': ['prediction', 'precision', 'coverage'], 'values': [0.95, 0.1], 'description': 'Prediction = True/False; Precision > 0.95;\n Coverage > 0.1'}
-    ]
-}
-
-shap_tests = {
-    'files': [
-        'skrub_tx_shap_explanations.json',
-        'skrub_ca_shap_explanations.json',
-        'skrub_ny_shap_explanations.json',
-        'xg_tx_shap_explanations.json',
-        'xg_ca_shap_explanations.json',
-        'xg_ny_shap_explanations.json'
-    ],
-    'tests': [
-        {'conditions': ['prediction'], 'values': [], 'description': 'Prediction = True/False'},
-        {'conditions': ['prediction', 'precision'], 'values': [0.95], 'description': 'Prediction = True/False; Precision > 0.95'},
-        {'conditions': ['prediction', 'precision', 'rank_position'], 'values': [0.95, 3], 'description': 'Prediction = True/False; Precision > 0.95;\n Rank position <= 3'}
-    ]
-}
-
-di_test = {
-    'files': [
-        'skrub_ny_anchors_explanations.json'
-    ],
-    'tests': [
-        {'conditions': ['prediction', 'precision', 'coverage'], 'values': [0.95, 0.1], 'description': 'Prediction = True/False; Precision > 0.95;\n Coverage > 0.1'}
-    ]
-}
-
-fairness.generate_exp_profile_analysis(anchors_tests, save_plot=True)
-fairness.generate_exp_profile_analysis(shap_tests, save_plot=True)

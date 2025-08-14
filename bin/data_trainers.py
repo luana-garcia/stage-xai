@@ -1,19 +1,17 @@
-from bias_measure_fcts import Cpt_DI,Cpt_EoO,Cpt_Suf
-from simple_nn import SimpleNNclassifier
+from xai.bias_measure_fcts import Cpt_DI,Cpt_EoO,Cpt_Suf
+from bin.simple_nn import SimpleNNclassifier
 from math import sqrt
 
 from xgboost import XGBClassifier
 from skrub import tabular_pipeline
 
-import sklearn as sk
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import mean_absolute_error,confusion_matrix,roc_curve, roc_auc_score
+from sklearn.metrics import confusion_matrix,roc_curve, roc_auc_score
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import os
 
 class DataTrainer:
