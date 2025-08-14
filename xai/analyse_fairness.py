@@ -14,8 +14,9 @@ from sklearn.cluster import KMeans
 # SENSIBLE VARIABLE: 'SEX' (1 = homme, 2 = femme)
 
 class AnalyseFairness:
-    def __init__(self, loader, trainer=None, file_path='xai/output/json/'):
+    def __init__(self, loader, sensible_feature, trainer=None, file_path='xai/output/json/'):
         self.loader = loader
+        self.sensible_feature = sensible_feature
         self.trainer = trainer
         self.file_path = file_path
 
@@ -36,7 +37,7 @@ class AnalyseFairness:
 
         self.apply_pca_on_test_data(self.X_train, self.X_test)
 
-        _, exp_genred_ids = self.analyse_sex_anchors()
+        _, exp_genred_ids = self.analyse_sensible_var_in_exp()
 
         mask_genred_exp = self.mask_filtered_ids(exp_genred_ids, self.X_test.index)
         
@@ -67,8 +68,8 @@ class AnalyseFairness:
         return exp_mask
     
     def run_condition_test(self, conditions, cond_values):
-        exp_true, exp_ids_true = self.analyse_sex_anchors(conditions, ['True'] + cond_values)
-        exp_false, exp_ids_false = self.analyse_sex_anchors(conditions, ['False'] + cond_values)
+        exp_true, exp_ids_true = self.analyse_sensible_var_in_exp(conditions, ['True'] + cond_values)
+        exp_false, exp_ids_false = self.analyse_sensible_var_in_exp(conditions, ['False'] + cond_values)
 
         return exp_true, exp_ids_true, exp_false, exp_ids_false
 
@@ -78,10 +79,10 @@ class AnalyseFairness:
         mask_true_ids = self.mask_filtered_ids(exp_ids_true, self.X_test.index)
         mask_false_ids = self.mask_filtered_ids(exp_ids_false, self.X_test.index)
 
-        men_ids = self.X_test.index[self.X_test['SEX'].isin([1])].tolist()
+        men_ids = self.X_test.index[self.X_test[self.sensible_feature].isin([1])].tolist()
         mask_men_ids = self.mask_filtered_ids(men_ids, self.X_test.index)
 
-        women_ids = self.X_test.index[self.X_test['SEX'].isin([2])].tolist()
+        women_ids = self.X_test.index[self.X_test[self.sensible_feature].isin([2])].tolist()
         mask_women_ids = self.mask_filtered_ids(women_ids, self.X_test.index)
 
         mask_male_true = mask_true_ids & mask_men_ids
@@ -212,7 +213,7 @@ class AnalyseFairness:
         ncols = 2     # 2 columns
         nrows = (num_plots + ncols - 1) // ncols
         fig, axs = plt.subplots(nrows, ncols, figsize=(ncols*5, nrows*5))
-        fig.suptitle(f"Distribution of Anchors by 'SEX' feature:\nTotal of test data: {len(self.exp_data.items())}")
+        fig.suptitle(f"Distribution of Anchors by {self.sensible_feature} feature:\nTotal of test data: {len(self.exp_data.items())}")
         axs = axs.ravel()  # Flatten the array of axes
 
         ax_num = 0
@@ -311,12 +312,12 @@ class AnalyseFairness:
 
         return condition, verify_rank_position
 
-    def analyse_sex_anchors(self, cond = [], cond_value = []):
+    def analyse_sensible_var_in_exp(self, cond = [], cond_value = []):
         if len(cond) != len(cond_value):
             raise ValueError("As listas 'cond' e 'cond_value' devem ter o mesmo tamanho")
             
-        sex_anchors = dict()
-        sex_anchors_ids = []
+        sensible_exp = dict()
+        sensible_exp_ids = []
         for key, value in self.exp_data.items():
             all_cond = True
             verify_rank_position = 50
@@ -327,36 +328,33 @@ class AnalyseFairness:
             
             if all_cond:
                 for i, f in enumerate(value.get('features')):
-                    if f.get('feature_name') == 'SEX' and i <= verify_rank_position:
+                    if f.get('feature_name') == self.sensible_feature and i <= verify_rank_position:
                         feature_range = f.get('feature_ranges')
                         feature_value = f.get('feature_value')
 
                         if feature_range is not None:
                             label = feature_range
                         else:
-                            if feature_value == 1:
-                                label = 'SEX = 1'
-                            elif feature_value == 2:
-                                label = 'SEX = 2'
-                            else:
-                                label = f'SEX = {feature_value}'
+                            label = f'{self.sensible_feature} = {feature_value}'
 
                         # label = feature_range if feature_range is not None else feature_value
                             
-                        if label not in sex_anchors:
-                            sex_anchors[label] = 0
+                        if label not in sensible_exp:
+                            sensible_exp[label] = 0
                         
-                        sex_anchors[label] += 1
-                        sex_anchors_ids.append(key)
+                        sensible_exp[label] += 1
+                        sensible_exp_ids.append(key)
 
-        return sex_anchors, sex_anchors_ids
+        return sensible_exp, sensible_exp_ids
 
 loader = DataLoader()
 trainer = DataTrainer(loader)
 
 file_path = 'xai/output/json/'
 
-fairness = AnalyseFairness(loader, trainer, file_path)
+sensible_feature = 'SEX'
+
+fairness = AnalyseFairness(loader, sensible_feature, trainer, file_path)
 
 anchors_tests = {
     'files': [
